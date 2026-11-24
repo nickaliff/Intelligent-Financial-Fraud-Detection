@@ -1,74 +1,80 @@
 # Intelligent Financial Fraud Detection
 
-An end-to-end machine learning project that detects potentially fraudulent credit card transactions. The project covers data cleaning, SQL-based analysis, exploratory data analysis, imbalanced classification, model comparison, threshold selection, hyperparameter tuning, and model explainability with SHAP.
+An end-to-end machine learning project for identifying potentially fraudulent credit card transactions. The project covers data cleaning, SQL analysis, exploratory data analysis, imbalanced classification, model comparison, hyperparameter tuning, SHAP explainability, and a local prediction interface built with FastAPI and Streamlit.
 
-> **Project status:** Model development and final holdout testing are complete. API and dashboard deployment are planned future work and are not yet implemented.
+The final model is a tuned XGBoost classifier. Users can upload a transaction CSV through the Streamlit dashboard, receive fraud predictions from the FastAPI service, and inspect individual predictions with SHAP explanations.
 
-## 1. Project objectives
+## Project features
 
-- Explore transaction data and understand the imbalance between legitimate and fraudulent transactions.
-- Clean the dataset and store the processed records in SQLite.
-- Use SQL and Python for data analysis.
-- Train and compare Logistic Regression, Random Forest, and XGBoost models.
-- Investigate class weighting and SMOTE for imbalanced classification.
-- Tune XGBoost hyperparameters using chronological cross-validation.
-- Explain model predictions using SHAP.
-- Evaluate the selected model on a separate chronological test set.
+- Data inspection, duplicate removal, and SQLite database integration.
+- SQL queries and exploratory data analysis (EDA).
+- Chronological training, validation, and test splits.
+- Comparison of Logistic Regression, Random Forest, and XGBoost models.
+- Experiments with class weighting and SMOTE to address class imbalance.
+- XGBoost hyperparameter tuning using time-series cross-validation.
+- Model evaluation using precision, recall, F1-score, Average Precision, and ROC-AUC.
+- Global and fraud-specific model explanations using SHAP.
+- FastAPI endpoints for single predictions, batch predictions, and explanations.
+- Streamlit dashboard for CSV upload, prediction summaries, transaction results, and individual explanations.
 
-## 2. Dataset
+## 1. Dataset
 
-**Credit Card Fraud Detection** — the dataset published by the Machine Learning Group at Université Libre de Bruxelles (ULB).
+This project uses the **Credit Card Fraud Detection** dataset published by the Machine Learning Group at Université Libre de Bruxelles (ULB).
 
-Dataset page: <https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud>
+- Dataset: [Kaggle – Credit Card Fraud Detection](https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud)
+- Original size: 284,807 transactions and 31 columns.
+- Collection period: two days in September 2013.
+- `Time`: elapsed seconds from the first transaction in the dataset, not a calendar timestamp.
+- `Amount`: transaction amount.
+- `V1` to `V28`: anonymised PCA-transformed input features.
+- `Class`: target label (`0` = legitimate, `1` = fraudulent).
 
-The dataset contains transactions from European cardholders over two days in September 2013. It has 284,807 rows and 31 columns before cleaning. Most input variables (`V1` to `V28`) are anonymised PCA-transformed features. `Amount` contains the transaction amount, `Time` records elapsed seconds, and `Class` is the target label.
+The source dataset is not included in this repository. Download `creditcard.csv` from Kaggle and place it in `data/raw/` before running the data preparation scripts.
 
-- `Class = 0`: legitimate transaction
-- `Class = 1`: fraudulent transaction
+### Data cleaning results
 
-### Cleaning results
+The initial inspection identified 1,081 duplicate copies. After removing exact duplicate rows, the dataset contained 283,726 transactions.
 
-The initial inspection found 1,081 duplicate copies. Removing exact duplicate rows reduced the dataset to 283,726 records.
-
-| Class | Records after cleaning |
+| Class | Transactions after cleaning |
 |---|---:|
 | Legitimate | 283,253 |
 | Fraudulent | 473 |
 | **Total** | **283,726** |
 
-Fraudulent records represent approximately 0.167% of the cleaned dataset, so accuracy alone is not a suitable measure of model quality.
+Fraudulent transactions represent approximately **0.167%** of the cleaned dataset. Because of this class imbalance, accuracy alone is not a reliable measure of model performance.
 
-## 3. Project workflow
+## 2. Project workflow
 
-1. **Data inspection and cleaning:** inspect column types, missing values, duplicate rows, and class distribution.
-2. **SQL integration:** save the cleaned records in a SQLite database and query transaction counts, class percentages, average amounts, and high-value fraud records.
+1. **Data inspection and cleaning:** inspect data types, missing values, duplicate records, and class distribution.
+2. **Database integration:** store the cleaned data in SQLite and perform SQL queries on transaction counts, class distribution, and transaction amounts.
 3. **Exploratory data analysis:** examine transaction amounts, elapsed-time patterns, feature correlations, and feature distributions.
-4. **Data preparation:** sort transactions by time and create chronological training, validation, and test partitions.
-5. **Feature scaling:** fit `StandardScaler` on training data only. Use scaled data for Logistic Regression and SMOTE; use the original feature values for tree-based models.
-6. **Model development:** train Logistic Regression, weighted Logistic Regression, Random Forest, and XGBoost variants.
-7. **Imbalance experiments:** compare class weighting and SMOTE. Resampling is applied to the training data only.
-8. **Hyperparameter tuning:** compare six XGBoost configurations using three expanding-window `TimeSeriesSplit` folds and Average Precision.
-9. **Explainability:** use SHAP for overall feature analysis, fraud-only analysis, and an individual transaction explanation.
-10. **Final evaluation:** evaluate the selected tuned XGBoost model once on the held-out chronological test set.
+4. **Data preparation:** sort records by `Time` and divide them into chronological training, validation, and test sets.
+5. **Feature preparation:** use `V1`–`V28` and `Amount` as the 29 model features. `Time` is used for chronological ordering and splitting, but is excluded from model training. `Class` is the target.
+6. **Model development:** train and compare Logistic Regression, weighted Logistic Regression, Random Forest, and several XGBoost configurations.
+7. **Imbalance experiments:** evaluate class weighting and SMOTE. SMOTE is applied to training data only.
+8. **Hyperparameter tuning:** compare six XGBoost configurations with three expanding-window `TimeSeriesSplit` folds, using Average Precision as the tuning metric.
+9. **Explainability:** use SHAP to understand overall feature importance, fraud-specific feature importance, and individual transaction predictions.
+10. **Final evaluation:** evaluate the selected tuned XGBoost model on the held-out chronological test set.
+11. **Local inference demo:** serve predictions and SHAP explanations through FastAPI and provide a CSV-based user interface with Streamlit.
 
-## 4. Chronological data split
+### Chronological data split
 
-The cleaned dataset was sorted by `Time` before splitting. This keeps earlier transactions in training and later transactions in validation and testing.
+The cleaned data was sorted by `Time` before splitting. Earlier transactions are used for training, followed by validation and then testing.
 
 | Partition | Records | Legitimate | Fraudulent | Fraud rate |
 |---|---:|---:|---:|---:|
 | Training | 198,609 | 198,243 | 366 | 0.184% |
 | Validation | 42,560 | 42,505 | 55 | 0.129% |
-| Testing | 42,557 | 42,505 | 52 | 0.122% |
+| Test | 42,557 | 42,505 | 52 | 0.122% |
 | **Total** | **283,726** | **283,253** | **473** | **0.167%** |
 
-The validation set was used for model comparison and threshold selection. The test set was kept separate until final evaluation.
+The validation set was used for model comparison and threshold selection. The test set was kept separate for final evaluation. `StandardScaler` was fitted on training data only; scaled features were used for Logistic Regression and the SMOTE experiment. Tree-based models used the original feature values.
 
-## 5. Models and validation results
+## 3. Model comparison
 
-The following are the best observed validation F1-scores for the configurations tested. Thresholds were selected using the validation data.
+The table shows the selected validation threshold and the corresponding validation precision, recall, and F1-score for each tested model configuration.
 
-| Model | Selected threshold | Precision | Recall | F1-score |
+| Model | Threshold | Precision | Recall | F1-score |
 |---|---:|---:|---:|---:|
 | Logistic Regression | 0.10 | 72.31% | 85.45% | 78.33% |
 | Weighted Logistic Regression | 0.90 | 21.93% | 90.91% | 35.34% |
@@ -78,21 +84,23 @@ The following are the best observed validation F1-scores for the configurations 
 | XGBoost with SMOTE | 0.90 | 93.48% | 78.18% | 85.15% |
 | **Tuned XGBoost** | **0.50** | **100.00%** | **76.36%** | **86.60%** |
 
-The tuned XGBoost model was selected as the final candidate. Its tuned configuration was:
+The tuned XGBoost model was selected as the final model. Its hyperparameters were:
 
-- `n_estimators = 300`
-- `max_depth = 4`
-- `learning_rate = 0.05`
-- `min_child_weight = 3`
-- `subsample = 0.8`
-- `colsample_bytree = 0.8`
-- `reg_lambda = 5`
+| Parameter | Value |
+|---|---:|
+| `n_estimators` | 300 |
+| `max_depth` | 4 |
+| `learning_rate` | 0.05 |
+| `min_child_weight` | 3 |
+| `subsample` | 0.8 |
+| `colsample_bytree` | 0.8 |
+| `reg_lambda` | 5 |
 
-The best cross-validation configuration achieved mean Average Precision of 0.7678 across three chronological folds. This cross-validation score is calculated on different folds and should not be directly compared with validation-set Average Precision.
+The best configuration achieved a mean Average Precision of **0.7678** across three chronological cross-validation folds. This is a cross-validation result and should not be directly compared with the validation-set Average Precision below.
 
-## 6. Final test results
+## 4. Final test results
 
-The tuned XGBoost model was evaluated on the held-out test set using the threshold of 0.50 selected before testing.
+The tuned XGBoost model was evaluated on the held-out test set using the threshold of **0.50**, selected before the test evaluation.
 
 | Metric | Test result |
 |---|---:|
@@ -103,68 +111,127 @@ The tuned XGBoost model was evaluated on the held-out test set using the thresho
 | Average Precision | 0.7543 |
 | ROC-AUC | 0.9817 |
 
-Confusion matrix (rows = actual class; columns = predicted class):
+Confusion matrix (rows = actual class, columns = predicted class):
 
 ```text
-[[42503     2]
- [   14    38]]
+                 Predicted legitimate   Predicted fraud
+Actual legitimate          42,503                 2
+Actual fraud                   14                38
 ```
 
-The model correctly detected 38 of the 52 fraudulent test transactions and produced 2 false positives. It missed 14 fraudulent transactions.
+The model correctly detected **38 of 52** fraudulent test transactions, missed 14, and produced 2 false positives.
 
-The test results are lower than the validation results, particularly for Average Precision. This indicates that ranking performance was weaker in the later test period. The dataset covers only two days and contains 52 fraud cases in the test partition, so results have sampling uncertainty and do not establish performance on future real-world banking transactions.
+The test results are lower than the validation results, particularly for Average Precision. This suggests that ranking performance was weaker in the later test period, although the small number of fraud cases means the result is subject to sampling uncertainty. The dataset covers only two days, so these results do not establish how the model would perform on newer or real-world banking transactions.
 
-## 7. SHAP explainability findings
+## 5. SHAP explainability
 
-SHAP analysis was performed using the tuned XGBoost model.
+SHAP was used with the tuned XGBoost model to examine both overall model behaviour and individual predictions. The SHAP values for this model explain contributions in the model's raw output space (log-odds), not direct percentage-point changes in probability.
 
-### Overall sample
+### Overall validation sample
 
-Mean absolute SHAP values from a random sample of 1,000 validation transactions ranked these features highest:
-
-| Rank | Feature | Mean absolute SHAP |
-|---:|---|---:|
-| 1 | V4 | 1.3597 |
-| 2 | V14 | 1.0908 |
-| 3 | V12 | 0.7105 |
-| 4 | V8 | 0.3584 |
-| 5 | Amount | 0.3296 |
-| 6 | V10 | 0.2988 |
-
-### Fraud-only sample
-
-Among the 55 fraudulent validation transactions, the highest mean absolute SHAP values were:
+Mean absolute SHAP values from a random sample of 1,000 validation transactions ranked the following features highest:
 
 | Rank | Feature | Mean absolute SHAP |
 |---:|---|---:|
-| 1 | V14 | 3.3859 |
-| 2 | V10 | 1.5134 |
-| 3 | V4 | 1.1026 |
-| 4 | V12 | 0.7576 |
-| 5 | V17 | 0.6510 |
+| 1 | `V4` | 1.3597 |
+| 2 | `V14` | 1.0908 |
+| 3 | `V12` | 0.7105 |
+| 4 | `V8` | 0.3584 |
+| 5 | `Amount` | 0.3296 |
+| 6 | `V10` | 0.2988 |
 
-These are model explanations, not causal relationships. Since `V1` to `V28` are anonymised PCA features, their original financial meanings are not available in this dataset. The fraud-only ranking is based on 55 cases and should be interpreted cautiously.
+### Fraud-only validation sample
 
-## 8. Technology stack
+For the 55 fraudulent transactions in the validation set, the highest mean absolute SHAP values were:
 
-- **Python** — project programming language
-- **Pandas and NumPy** — data preparation and numerical operations
-- **SQLite and sqlite3** — database storage and SQL queries
-- **Matplotlib and Seaborn** — data visualisation
-- **Scikit-learn** — preprocessing, baseline models, metrics, and time-series splitting
-- **XGBoost** — gradient-boosted decision trees
-- **imbalanced-learn** — SMOTE oversampling
-- **SHAP** — model explainability
-- **VS Code** — development environment
+| Rank | Feature | Mean absolute SHAP |
+|---:|---|---:|
+| 1 | `V14` | 3.3859 |
+| 2 | `V10` | 1.5134 |
+| 3 | `V4` | 1.1026 |
+| 4 | `V12` | 0.7576 |
+| 5 | `V17` | 0.6510 |
 
-## 9. Repository structure
+These values describe how the model uses the available features; they do not demonstrate causal relationships. The original meanings of `V1`–`V28` are not available because these variables are anonymised PCA components. The fraud-only analysis is based on 55 cases and should be interpreted cautiously.
+
+## 6. API and dashboard
+
+The project includes a local inference application with a FastAPI backend and Streamlit frontend.
+
+```mermaid
+flowchart LR
+    A[CSV upload] --> B[Streamlit dashboard]
+    B --> C[FastAPI]
+    C --> D[Tuned XGBoost model]
+    C --> E[SHAP explainer]
+    D --> C
+    E --> C
+    C --> B
+```
+
+### FastAPI endpoints
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/health` | Check whether the API and model are available. |
+| `POST` | `/predict` | Predict one transaction. |
+| `POST` | `/predict/batch` | Predict multiple transactions in one request. |
+| `POST` | `/explain` | Return a SHAP explanation for one transaction. |
+
+FastAPI's interactive API documentation is available at `http://127.0.0.1:8000/docs` while the local API is running.
+
+### Streamlit dashboard
+
+The dashboard in `app/dashboard.py` provides:
+
+- CSV upload and input validation.
+- A preview of the uploaded data.
+- Batch fraud predictions through the FastAPI backend.
+- A summary of predicted fraudulent and legitimate transactions.
+- A transaction results table with fraud probabilities and predicted labels.
+- Downloadable prediction results.
+- Individual transaction explanations showing the top SHAP feature contributions.
+
+For dashboard uploads, include the 29 model features (`V1` to `V28` and `Amount`). The dashboard also accepts optional `Time` and `Class` columns; `Class` can be used to compare predictions with known labels. Each prediction batch is limited to 5,000 transactions.
+
+### Run the application locally
+
+Complete the installation steps below and generate the tuned model file at `outputs/models/xgboost_tuned.json` before starting the API. The dataset, processed files, and model artifacts are kept locally and are not included in the Git repository.
+
+**Terminal 1 – start the FastAPI backend:**
+
+```powershell
+uvicorn src.api:app --reload
+```
+
+**Terminal 2 – start the Streamlit dashboard:**
+
+```powershell
+streamlit run app/dashboard.py
+```
+
+Open the local URL printed by Streamlit in your browser. Keep the FastAPI terminal running while using the dashboard. The dashboard is configured to connect to `http://127.0.0.1:8000`.
+
+To test the API separately, start FastAPI first and then run:
+
+```powershell
+python src/test_api.py
+```
+
+The API test script uses a row from the locally generated validation data, so the preparation workflow must have been run first.
+
+## 7. Repository structure
+
+The main source files and generated reports are organised as follows. Some data and model files are created locally and intentionally excluded from Git.
 
 ```text
 intelligent-fraud-detection/
 │
-├── data/
+├── app/
+│   └── dashboard.py
+│
+├── data/                         # local data; excluded from Git
 │   ├── raw/
-│   │   └── creditcard.csv
 │   └── processed/
 │       ├── fraud_detection.db
 │       ├── train.csv
@@ -173,11 +240,17 @@ intelligent-fraud-detection/
 │       └── scaled/
 │
 ├── outputs/
-│   ├── figures/
-│   ├── models/
+│   ├── figures/                  # EDA and model visualisations
+│   ├── models/                   # locally saved models; excluded from Git
+│   ├── fraud_shap_importance.csv
+│   ├── random_forest_feature_importance.csv
+│   ├── shap_feature_importance.csv
+│   └── xgboost_feature_importance.csv
+│
+├── reports/
+│   ├── final_confusion_matrix.csv
 │   ├── final_test_metrics.csv
-│   ├── final_test_predictions.csv
-│   └── shap_feature_importance.csv
+│   └── model_comparison.csv
 │
 ├── src/
 │   ├── inspect_data.py
@@ -195,33 +268,62 @@ intelligent-fraud-detection/
 │   ├── train_xgboost_smote.py
 │   ├── tune_xgboost.py
 │   ├── explain_shap.py
-│   └── final_evaluation.py
+│   ├── final_evaluation.py
+│   ├── create_reports.py
+│   ├── evaluate_tuned_xgboost.py
+│   ├── compare_*_thresholds.py
+│   ├── api.py
+│   └── test_api.py
 │
 ├── requirements.txt
-├── README.md
-└── .gitignore
+├── .gitignore
+└── README.md
 ```
 
-The repository structure is a guide; include the files that exist in your final local project. The raw dataset, processed database, and generated model files can be kept outside Git if they make the repository too large. Provide instructions for obtaining the source dataset instead.
+## 8. Setup and installation
 
-## 10. Setup and installation
+### 1. Clone the repository
 
-1. Clone or download this repository.
-2. Download `creditcard.csv` from the dataset page and place it in `data/raw/`.
-3. Create and activate a virtual environment.
-4. Install the Python dependencies.
+```powershell
+git clone https://github.com/nickaliff/Intelligent-Financial-Fraud-Detection.git
+cd Intelligent-Financial-Fraud-Detection
+```
 
-Windows PowerShell:
+### 2. Download the dataset
+
+Download `creditcard.csv` from the [Kaggle dataset page](https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud) and place it here:
+
+```text
+data/raw/creditcard.csv
+```
+
+Create the required local folders if they do not already exist:
+
+```powershell
+New-Item -ItemType Directory -Force -Path data/raw, data/processed, outputs/figures, outputs/models, reports | Out-Null
+```
+
+### 3. Create and activate a virtual environment
 
 ```powershell
 python -m venv .venv
-.venv\Scripts\Activate.ps1
+.\.venv\Scripts\Activate.ps1
+```
+
+### 4. Install dependencies
+
+```powershell
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-Run scripts from the project root directory. For example:
+## 9. Reproducing the project workflow
 
-```bash
+Run the scripts from the project root directory, in workflow order, because later stages depend on files generated by earlier stages.
+
+### Data inspection and preparation
+
+```powershell
 python src/inspect_data.py
 python src/check_duplicates.py
 python src/create_database.py
@@ -231,20 +333,42 @@ python src/prepare_data.py
 python src/scale_features.py
 ```
 
-Run the model training, tuning, SHAP, and final evaluation scripts after the prepared datasets have been generated. The scripts should be executed in workflow order because later stages depend on files created by earlier stages.
+### Model experiments and tuning
 
-## 11. Limitations and future work
+Run the model experiment scripts to reproduce the baseline and imbalance-handling comparisons:
 
-- The data covers only two days in September 2013 and may not represent current transaction behaviour.
-- The number of fraudulent observations is small, particularly in the validation and test partitions.
-- Most features are anonymised PCA components, limiting direct business interpretation.
-- The data does not include customer-level history, merchant details, or confirmed investigation outcomes.
-- The temporal split is useful for testing later observations, but longer historical coverage is needed to evaluate real deployment stability.
-- SMOTE creates synthetic training observations that may not represent real transactions.
-- The model has not been deployed or tested in a live payment environment.
+```powershell
+python src/train_logistic_regression.py
+python src/train_weighted_logistic.py
+python src/train_random_forest.py
+python src/train_xgboost.py
+python src/train_xgboost_weighted.py
+python src/train_xgboost_smote.py
+```
 
-Future improvements include longer-term and newer transaction data, more robust temporal validation, probability calibration, cost-sensitive threshold selection, model monitoring, an inference API, and an interactive dashboard.
+Then run the tuned model workflow and the relevant evaluation and explainability scripts:
 
-## 12. Disclaimer
+```powershell
+python src/tune_xgboost.py
+python src/evaluate_tuned_xgboost.py
+python src/explain_shap.py
+python src/final_evaluation.py
+python src/create_reports.py
+```
 
-This project is for educational and portfolio purposes. It is not a production-ready banking fraud detection service and should not be used to make real financial decisions.
+The threshold-comparison scripts (`compare_*_thresholds.py`) can also be run to inspect alternative decision thresholds. Run the scripts from the project root and check their outputs before proceeding to the next stage.
+
+## 10. Limitations and future improvements
+
+- The dataset covers only two days in September 2013 and may not represent current transaction behaviour.
+- Fraud observations are limited, especially in the validation and test partitions. Metrics and threshold comparisons therefore have sampling uncertainty.
+- Most input features are anonymised PCA components, which limits direct business interpretation.
+- The dataset does not provide customer histories, merchant details, or investigation outcomes.
+- The model has been evaluated on a chronological holdout from this dataset, not on live banking traffic.
+- The local API and dashboard are a portfolio demonstration. They do not include production authentication, monitoring, payment-system integration, or operational safeguards.
+
+Potential future improvements include evaluating newer and longer-term transaction data, probability calibration, cost-sensitive threshold selection, model monitoring, and testing under a controlled production-like environment.
+
+## Disclaimer
+
+This project is for educational and portfolio purposes only. It is not a production-ready banking fraud detection system and must not be used to make real financial decisions.
