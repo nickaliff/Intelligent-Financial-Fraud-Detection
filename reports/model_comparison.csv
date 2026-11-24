@@ -1,0 +1,8 @@
+Model,Variant,Threshold,Precision,Recall,F1_Score,Average_Precision,ROC_AUC,TP,FP,FN
+XGBoost,Baseline,0.7,1.0,0.7636,0.866,0.8553,0.9883,42,0,13
+XGBoost,Tuned,0.5,1.0,0.7636,0.866,0.857,0.9892,42,0,13
+Random Forest,Baseline,0.3,0.9767,0.7636,0.8571,0.8581,0.9853,42,1,13
+XGBoost,Class Weighted,0.95,0.9767,0.7636,0.8571,0.8424,0.9922,42,1,13
+XGBoost,SMOTE,0.9,0.9348,0.7818,0.8515,0.8254,0.9847,43,3,12
+Logistic Regression,Baseline,0.1,0.7231,0.8545,0.7833,0.7789,0.9819,47,18,8
+Logistic Regression,Class Weighted,0.9,0.2193,0.9091,0.3534,0.8367,0.9812,50,178,5

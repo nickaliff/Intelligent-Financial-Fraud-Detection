@@ -1,0 +1,23 @@
+# Virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Environment variables
+.env
+
+# Dataset files
+data/raw/
+data/processed/
+
+# Trained models
+outputs/models/
+
+# Generated prediction data
+outputs/final_test_predictions.csv
+
+# Operating system files
+.DS_Store
+Thumbs.db
